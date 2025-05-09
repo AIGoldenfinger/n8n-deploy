@@ -17,14 +17,21 @@ start_n8n() {
   if ! docker ps -q --filter "name=n8n" | grep -q .; then
     echo "Starting n8n container with persistent storage..."
     docker rm -f n8n 2>/dev/null || true
-    docker run -d --name n8n \
-      --restart always \
-      -p 5678:5678 \
-      -v /home/n8n-data:/home/node/.n8n \
-      -e WEBHOOK_URL=https://auto8i.serveo.net/ \
-      -e N8N_HOST=auto8i.serveo.net \
-      -e N8N_PROTOCOL=https \
-      -e GENERIC_TIMEZONE="UTC" \
+docker run -d \
+  --restart always \
+  --name n8n \
+  -p 5678:5678 \
+  -v /home/n8n-data:/home/node/.n8n \
+  -m 900m \
+  --memory-swap 2G \
+  -e NODE_OPTIONS="--max_old_space_size=384" \
+  -e N8N_DISABLE_PRODUCTION_MAIN_PROCESS="true" \
+  -e N8N_DISABLE_WORKFLOW_STATS="true" \
+  -e N8N_PROTOCOL="https" \
+  -e GENERIC_TIMEZONE="UTC" \
+  -e WEBHOOK_URL="https://auto8i.serveo.net/" \
+  -e N8N_HOST="auto8i.serveo.net" \
+  n8nio/n8n:1.91.2
       n8nio/n8n
     echo "n8n started at $(date) with persistent storage"
   else
@@ -42,14 +49,6 @@ start_serveo() {
     echo "Serveo tunnel is already running"
   fi
 }
-
-# Main monitoring loop
-while true; do
-  start_n8n
-  start_serveo
-  sleep 60
-done
-EOF
 
 # Install updated script
 sudo mv /tmp/startup.sh /usr/local/bin/startup.sh
