@@ -5,10 +5,10 @@ sudo mkdir -p /home/n8n-data
 sudo chmod 777 /home/n8n-data
 
 # Stop current n8n container
-sudo docker stop n8n
-sudo docker rm n8n
+sudo docker stop n8n 2>/dev/null || true
+sudo docker rm n8n 2>/dev/null || true
 
-# Update startup script with persistent volume
+# Create startup script with persistent volume
 cat > /tmp/startup.sh << 'EOF'
 #!/bin/bash
 
@@ -17,22 +17,21 @@ start_n8n() {
   if ! docker ps -q --filter "name=n8n" | grep -q .; then
     echo "Starting n8n container with persistent storage..."
     docker rm -f n8n 2>/dev/null || true
-docker run -d \
-  --restart always \
-  --name n8n \
-  -p 5678:5678 \
-  -v /home/n8n-data:/home/node/.n8n \
-  -m 900m \
-  --memory-swap 2G \
-  -e NODE_OPTIONS="--max_old_space_size=384" \
-  -e N8N_DISABLE_PRODUCTION_MAIN_PROCESS="true" \
-  -e N8N_DISABLE_WORKFLOW_STATS="true" \
-  -e N8N_PROTOCOL="https" \
-  -e GENERIC_TIMEZONE="UTC" \
-  -e WEBHOOK_URL="https://auto8i.serveo.net/" \
-  -e N8N_HOST="auto8i.serveo.net" \
-  n8nio/n8n:1.91.2
-      n8nio/n8n
+    docker run -d \
+      --restart always \
+      --name n8n \
+      -p 5678:5678 \
+      -v /home/n8n-data:/home/node/.n8n \
+      -m 900m \
+      --memory-swap 2G \
+      -e NODE_OPTIONS="--max_old_space_size=384" \
+      -e N8N_DISABLE_PRODUCTION_MAIN_PROCESS="true" \
+      -e N8N_DISABLE_WORKFLOW_STATS="true" \
+      -e N8N_PROTOCOL="https" \
+      -e GENERIC_TIMEZONE="UTC" \
+      -e WEBHOOK_URL="https://auto8i.serveo.net/" \
+      -e N8N_HOST="auto8i.serveo.net" \
+      n8nio/n8n:1.91.2
     echo "n8n started at $(date) with persistent storage"
   else
     echo "n8n is already running"
@@ -50,13 +49,18 @@ start_serveo() {
   fi
 }
 
+# Run both functions
+start_n8n
+start_serveo
+EOF
+
 # Install updated script
 sudo mv /tmp/startup.sh /usr/local/bin/startup.sh
 sudo chmod +x /usr/local/bin/startup.sh
 
 # Restart services
-sudo systemctl restart always-running.service
-sudo systemctl restart monitor.service
+sudo systemctl restart always-running.service 2>/dev/null || echo "Warning: always-running.service not found or failed to restart"
+sudo systemctl restart monitor.service 2>/dev/null || echo "Warning: monitor.service not found or failed to restart"
 
 # Run startup script to apply changes immediately
 sudo /usr/local/bin/startup.sh
